@@ -6,14 +6,14 @@ import (
 	"regexp"
 )
 
-func ValidateJson(tpl, input string) (valid bool, err error) {
+func ValidateJson(tpl, input []byte) (valid bool, err error) {
 	var tmpl map[string]interface{}
-	if err := json.Unmarshal([]byte(tpl), &tmpl); err != nil {
+	if err := json.Unmarshal(tpl, &tmpl); err != nil {
 		return false, err
 	}
 
 	var src map[string]interface{}
-	if err := json.Unmarshal([]byte(input), &src); err != nil {
+	if err := json.Unmarshal(input, &src); err != nil {
 		return false, err
 	}
 	return ValidateMap(tmpl, src)
@@ -33,7 +33,7 @@ func ValidateMap(tmpl, src map[string]interface{}) (valid bool, err error) {
 		} else {
 			valid = valid && reValidate(v.(string), src[k])
 			if !valid {
-				err = fmt.Errorf("key [%s] expected [%s], but received [%s]", k, fmt.Sprint(v), src[k])
+				err = fmt.Errorf("key [%s] expected [%s], but received [%s]", k, fmt.Sprint(v), fmt.Sprint(src[k]))
 				return false, err
 			}
 		}

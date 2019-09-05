@@ -35,7 +35,7 @@ const srcjson = `{
 }`
 
 func main() {
-	dst, err := jsonvalidator.ValidateJson(tmpljson, srcjson)
+	dst, err := jsonvalidator.ValidateJson([]byte(tmpljson), []byte(srcjson))
 
 	fmt.Println(dst, err)
 }
