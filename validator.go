@@ -6,7 +6,7 @@ import (
 	"regexp"
 )
 
-func Validate(tpl, input string) (valid bool, err error) {
+func ValidateJson(tpl, input string) (valid bool, err error) {
 	var tmpl map[string]interface{}
 	if err := json.Unmarshal([]byte(tpl), &tmpl); err != nil {
 		return false, err
@@ -16,16 +16,16 @@ func Validate(tpl, input string) (valid bool, err error) {
 	if err := json.Unmarshal([]byte(input), &src); err != nil {
 		return false, err
 	}
-	return validate(tmpl, src)
+	return ValidateMap(tmpl, src)
 }
 
-// validate the map recursively
-func validate(tmpl, src map[string]interface{}) (valid bool, err error) {
+// ValidateMap the map recursively
+func ValidateMap(tmpl, src map[string]interface{}) (valid bool, err error) {
 	valid = true
 	for k, v := range tmpl {
 		if innerMap, ok := v.(map[string]interface{}); ok {
 			var subValid bool
-			subValid, err = validate(innerMap, src[k].(map[string]interface{}))
+			subValid, err = ValidateMap(innerMap, src[k].(map[string]interface{}))
 			if err != nil {
 				return false, err
 			}

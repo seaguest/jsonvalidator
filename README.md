@@ -10,6 +10,12 @@ A simple json validator based on json template which is in regular expression.
 ``` 
 package main
 
+import (
+	"fmt"
+	
+	"github.com/seaguest/jsonvalidator"
+)
+
 const tmpljson = `{
    "id": "^123456$",
    "data": {
@@ -29,9 +35,9 @@ const srcjson = `{
 }`
 
 func main() {
-	dst, err := Validate(tmpljson, srcjson)
+	dst, err := jsonvalidator.ValidateJson(tmpljson, srcjson)
 
-	logger.Error(dst, err)
+	fmt.Println(dst, err)
 }
 
 ```

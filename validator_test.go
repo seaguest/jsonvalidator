@@ -23,7 +23,7 @@ const srcjson = `{
 }`
 
 func main() {
-	dst, err := Validate(tmpljson, srcjson)
+	dst, err := ValidateJson(tmpljson, srcjson)
 
 	logger.Error(dst, err)
 }
