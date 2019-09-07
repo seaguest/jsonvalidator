@@ -1,5 +1,5 @@
 # jsonvalidator
-A simple json validator based on json template which is in regular expression.
+A simple json validator based on json template which support go-playground/validator and regular expression.
 
 ### Installation
 
@@ -17,10 +17,10 @@ import (
 )
 
 const tmpljson = `{
-   "id": "^123456$",
+   "id": "string|eq=123456",
    "data": {
-      "token": "Bearer\\s{1}",
-      "password": "^123456$"
+      "token": "re|Bearer\\s{1}",
+      "password": "re|^123456$"
    }
 }`
 
@@ -35,7 +35,7 @@ const srcjson = `{
 }`
 
 func main() {
-	dst, err := jsonvalidator.ValidateJson([]byte(tmpljson), []byte(srcjson))
+	dst, err := jsonvalidator.Validate([]byte(tmpljson), []byte(srcjson))
 
 	fmt.Println(dst, err)
 }

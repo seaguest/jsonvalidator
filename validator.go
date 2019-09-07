@@ -3,104 +3,133 @@ package jsonvalidator
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
+	"strings"
+
+	"github.com/go-playground/validator"
 )
 
-func ValidateJson(tpl, src []byte) (valid bool, err error) {
+var vd *validator.Validate
+
+func Validate(tpl, src []byte) (err error) {
 	var tplItf interface{}
 	if err := json.Unmarshal(tpl, &tplItf); err != nil {
-		return false, err
+		return err
 	}
 
 	var srcItf interface{}
 	if err := json.Unmarshal(src, &srcItf); err != nil {
-		return false, err
+		return err
 	}
-	return Validate(tplItf, srcItf)
+	return validate(tplItf, srcItf)
 }
 
-func Validate(tpl, src interface{}) (valid bool, err error) {
+func validate(tpl, src interface{}) (err error) {
 	switch v := tpl.(type) {
 	case []interface{}:
 		return validateSlice(v, src.([]interface{}))
 	case map[string]interface{}:
 		return validateMap(v, src.(map[string]interface{}))
 	default:
-		err := fmt.Errorf("non-supported type")
-		return false, err
+		return fmt.Errorf("non-supported type")
 	}
 }
 
-// validate the map recursively
-func validateMap(tpl, src map[string]interface{}) (valid bool, err error) {
-	valid = true
+func validateVar(id, exp string, v interface{}) (err error) {
+	ss := strings.Split(exp, "|")
+	if len(ss) != 2 {
+		err = fmt.Errorf("invalid exp [%s]", exp)
+		return
+	}
+	typ := ss[0]
+	tags := ss[1]
+
+	switch typ {
+	case "int":
+		if reflect.TypeOf(v) != reflect.TypeOf(float64(0)) {
+			err = fmt.Errorf("id [%s] expected [%s], but recieved [%s]", id, typ, reflect.TypeOf(v))
+			return
+		}
+
+		vv := v.(float64)
+		if vv != float64(int64(vv)) {
+			err = fmt.Errorf("id [%s] expected [%s], but recieved [%s]", id, typ, reflect.TypeOf(v))
+			return
+		}
+		return vd.Var(vv, tags)
+	case "float":
+		if reflect.TypeOf(v) != reflect.TypeOf(float64(0)) {
+			err = fmt.Errorf("id [%s] expected [%s], but recieved [%s]", id, typ, reflect.TypeOf(v))
+			return
+		}
+
+		return vd.Var(v, tags)
+	case "string":
+		if reflect.TypeOf(v) != reflect.TypeOf("") {
+			err = fmt.Errorf("id [%s] expected [%s], but recieved [%s]", id, typ, reflect.TypeOf(v))
+			return
+		}
+		return vd.Var(v, tags)
+	case "re":
+		exp := regexp.MustCompile(tags)
+		macth := exp.Match([]byte(fmt.Sprint(v)))
+		if !macth {
+			return fmt.Errorf("id [%s] expected [%s], but received [%s]", id, fmt.Sprint(exp), fmt.Sprint(v))
+		}
+		return nil
+	default:
+		return nil
+	}
+}
+
+// vd the map recursively
+func validateMap(tpl, src map[string]interface{}) (err error) {
 	for k, v := range tpl {
 		if subMap, ok := v.(map[string]interface{}); ok {
-			var subValid bool
-			subValid, err = validateMap(subMap, src[k].(map[string]interface{}))
+			err = validateMap(subMap, src[k].(map[string]interface{}))
 			if err != nil {
-				return false, err
+				return
 			}
-			valid = valid && subValid
 		} else if subMap, ok := v.([]interface{}); ok {
-			var subValid bool
-			subValid, err = validateSlice(subMap, src[k].([]interface{}))
+			err = validateSlice(subMap, src[k].([]interface{}))
 			if err != nil {
-				return false, err
+				return
 			}
-			valid = valid && subValid
 		} else {
-			valid = valid && reValidate(v.(string), src[k])
-			if !valid {
-				err = fmt.Errorf("key [%s] expected [%s], but received [%s]", k, fmt.Sprint(v), fmt.Sprint(src[k]))
-				return false, err
+			err = validateVar("", v.(string), src[k])
+			if err != nil {
+				return
 			}
-		}
-		if !valid {
-			return
 		}
 	}
 	return
 }
 
-// validate the slice recursively
-func validateSlice(tpl, src []interface{}) (valid bool, err error) {
+// vd the map slice recursively
+func validateSlice(tpl, src []interface{}) (err error) {
 	if len(tpl) != len(src) {
 		err = fmt.Errorf("size not match expected [%d], but received [%d]", len(tpl), len(src))
-		return false, err
+		return
 	}
 
-	valid = true
 	for idx, tv := range tpl {
 		if subMap, ok := tv.([]interface{}); ok {
-			var subValid bool
-			subValid, err = validateSlice(subMap, src[idx].([]interface{}))
+			err = validateSlice(subMap, src[idx].([]interface{}))
 			if err != nil {
-				return false, err
+				return
 			}
-			valid = valid && subValid
 		} else if subMap, ok := tv.(map[string]interface{}); ok {
-			var subValid bool
-			subValid, err = validateMap(subMap, src[idx].(map[string]interface{}))
+			err = validateMap(subMap, src[idx].(map[string]interface{}))
 			if err != nil {
-				return false, err
+				return
 			}
-			valid = valid && subValid
 		} else {
-			valid = valid && reValidate(tv.(string), src[idx])
-			if !valid {
-				err = fmt.Errorf("index [%d] expected [%s], but received [%s]", idx, fmt.Sprint(tv), fmt.Sprint(src[idx]))
-				return false, err
+			err = validateVar("", tv.(string), src[idx])
+			if err != nil {
+				return
 			}
-		}
-		if !valid {
-			return
 		}
 	}
 	return
-}
-
-func reValidate(reg string, v interface{}) bool {
-	exp := regexp.MustCompile(reg)
-	return exp.Match([]byte(fmt.Sprint(v)))
 }

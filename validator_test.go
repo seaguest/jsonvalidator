@@ -5,10 +5,10 @@ import (
 )
 
 const tmpljson = `{
-   "id": "^123456$",
+   "id": "re|^123456$",
    "data": {
-      "token": "Bearer\\s{1}",
-      "password": "^123456$"
+      "token": "re|Bearer\\s{1}",
+      "password": "re|^123456$"
    }
 }`
 
@@ -23,7 +23,7 @@ const srcjson = `{
 }`
 
 func main() {
-	dst, err := ValidateJson([]byte(tmpljson), []byte(srcjson))
+	dst, err := Validate([]byte(tmpljson), []byte(srcjson))
 
 	logger.Error(dst, err)
 }
