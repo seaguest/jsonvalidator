@@ -7,6 +7,15 @@ A simple json validator based on json template which support go-playground/valid
 
 ### Usage
 
+The expression example:
+
+```
+string|eq=ok    declare the node as string and equal ok
+int|eq=0        declare the node as int and equal 0
+re|^0$          declare validation type as regular expression
+ ```
+
+
 ``` 
 package main
 

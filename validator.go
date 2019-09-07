@@ -12,6 +12,10 @@ import (
 
 var vd *validator.Validate
 
+func init() {
+	vd = validator.New()
+}
+
 func Validate(tpl, src []byte) (err error) {
 	var tplItf interface{}
 	if err := json.Unmarshal(tpl, &tplItf); err != nil {
