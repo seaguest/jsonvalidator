@@ -10,6 +10,15 @@ import (
 	"github.com/go-playground/validator"
 )
 
+const (
+	validateTypeInt               = "int"
+	validateTypeFloat             = "float"
+	validateTypeString            = "string"
+	validateTypeRegularExpression = "re"
+
+	typeErrMsg = "id [%s] expected [%s], but recieved [%+v]"
+)
+
 var vd *validator.Validate
 
 func init() {
@@ -36,7 +45,7 @@ func validate(tpl, src interface{}) (err error) {
 	case map[string]interface{}:
 		return validateMap(v, src.(map[string]interface{}))
 	default:
-		return fmt.Errorf("non-supported type")
+		return fmt.Errorf("unsupported type")
 	}
 }
 
@@ -50,36 +59,36 @@ func validateVar(id, exp string, v interface{}) (err error) {
 	tags := ss[1]
 
 	switch typ {
-	case "int":
+	case validateTypeInt:
 		if reflect.TypeOf(v) != reflect.TypeOf(float64(0)) {
-			err = fmt.Errorf("id [%s] expected [%s], but recieved [%s]", id, typ, reflect.TypeOf(v))
+			err = fmt.Errorf(typeErrMsg, id, typ, reflect.TypeOf(v))
 			return
 		}
 
 		vv := v.(float64)
 		if vv != float64(int64(vv)) {
-			err = fmt.Errorf("id [%s] expected [%s], but recieved [%s]", id, typ, reflect.TypeOf(v))
+			err = fmt.Errorf(typeErrMsg, id, typ, reflect.TypeOf(v))
 			return
 		}
 		return vd.Var(vv, tags)
-	case "float":
+	case validateTypeFloat:
 		if reflect.TypeOf(v) != reflect.TypeOf(float64(0)) {
-			err = fmt.Errorf("id [%s] expected [%s], but recieved [%s]", id, typ, reflect.TypeOf(v))
+			err = fmt.Errorf(typeErrMsg, id, typ, reflect.TypeOf(v))
 			return
 		}
 
 		return vd.Var(v, tags)
-	case "string":
+	case validateTypeString:
 		if reflect.TypeOf(v) != reflect.TypeOf("") {
-			err = fmt.Errorf("id [%s] expected [%s], but recieved [%s]", id, typ, reflect.TypeOf(v))
+			err = fmt.Errorf(typeErrMsg, id, typ, reflect.TypeOf(v))
 			return
 		}
 		return vd.Var(v, tags)
-	case "re":
+	case validateTypeRegularExpression:
 		exp := regexp.MustCompile(tags)
 		macth := exp.Match([]byte(fmt.Sprint(v)))
 		if !macth {
-			return fmt.Errorf("id [%s] expected [%s], but received [%s]", id, fmt.Sprint(exp), fmt.Sprint(v))
+			return fmt.Errorf(typeErrMsg, id, tags, fmt.Sprint(v))
 		}
 		return nil
 	default:
@@ -87,7 +96,7 @@ func validateVar(id, exp string, v interface{}) (err error) {
 	}
 }
 
-// vd the map recursively
+// validate the map recursively
 func validateMap(tpl, src map[string]interface{}) (err error) {
 	for k, v := range tpl {
 		if subMap, ok := v.(map[string]interface{}); ok {
@@ -101,7 +110,7 @@ func validateMap(tpl, src map[string]interface{}) (err error) {
 				return
 			}
 		} else {
-			err = validateVar("", v.(string), src[k])
+			err = validateVar(k, v.(string), src[k])
 			if err != nil {
 				return
 			}
@@ -110,7 +119,7 @@ func validateMap(tpl, src map[string]interface{}) (err error) {
 	return
 }
 
-// vd the map slice recursively
+// validate the map slice recursively
 func validateSlice(tpl, src []interface{}) (err error) {
 	if len(tpl) != len(src) {
 		err = fmt.Errorf("size not match expected [%d], but received [%d]", len(tpl), len(src))

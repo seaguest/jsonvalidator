@@ -1,13 +1,12 @@
 # jsonvalidator
-A simple json validator based on json template which support go-playground/validator and regular expression.
+A json validator based on json template which supports go-playground/validator and regular expression.
 
 ### Installation
 
 `go get github.com/seaguest/jsonvalidator`
 
 ### Usage
-
-The expression example:
+The template json value is composed by type|rule. for example:
 
 ```
 string|eq=ok    declare the node as string and equal ok
