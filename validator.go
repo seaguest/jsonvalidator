@@ -16,7 +16,7 @@ const (
 	validateTypeString            = "string"
 	validateTypeRegularExpression = "re"
 
-	typeErrMsg = "id [%s] expected [%s], but recieved [%+v]"
+	typeErrMsg = "tag [%s] expected [%s], but recieved [%+v]"
 )
 
 var vd *validator.Validate
@@ -35,114 +35,86 @@ func Validate(tpl, src []byte) (err error) {
 	if err := json.Unmarshal(src, &srcItf); err != nil {
 		return err
 	}
-	return validate(tplItf, srcItf)
+	return validate(tplItf, srcItf, "")
 }
 
-func validate(tpl, src interface{}) (err error) {
-	switch v := tpl.(type) {
+func validate(tpl, src interface{}, tag string) (err error) {
+	switch val := tpl.(type) {
 	case []interface{}:
-		return validateSlice(v, src.([]interface{}))
+		// src must be slice
+		switch sval := src.(type) {
+		case []interface{}:
+			if len(val) != len(sval) {
+				return fmt.Errorf("node [%s] not match", tag)
+			}
+
+			for idx, v := range val {
+				err = validate(v, sval[idx], "")
+				if err != nil {
+					return
+				}
+			}
+		default:
+			return fmt.Errorf("node [%s] type inconsistent", tag)
+		}
 	case map[string]interface{}:
-		return validateMap(v, src.(map[string]interface{}))
+		// src must be slice
+		switch sval := src.(type) {
+		case map[string]interface{}:
+			for k, v := range val {
+				err = validate(v, sval[k], k)
+				if err != nil {
+					return
+				}
+			}
+		default:
+			return fmt.Errorf("node [%s] type inconsistent", tag)
+		}
 	default:
-		return fmt.Errorf("unsupported type")
+		return validateVar(tag, val.(string), src)
 	}
+	return
 }
 
-func validateVar(id, exp string, v interface{}) (err error) {
+func validateVar(tag, exp string, v interface{}) (err error) {
 	ss := strings.Split(exp, "|")
 	if len(ss) != 2 {
-		err = fmt.Errorf("invalid exp [%s]", exp)
-		return
+		return fmt.Errorf("invalid exp [%s]", exp)
 	}
 	typ := ss[0]
 	tags := ss[1]
 
+	wrapErr := func(e error) error {
+		if e != nil {
+			return fmt.Errorf(strings.Replace(e.Error(), "''", fmt.Sprintf("'%s'", tag), -1))
+		}
+		return nil
+	}
+
 	switch typ {
 	case validateTypeInt:
 		if reflect.TypeOf(v) != reflect.TypeOf(float64(0)) {
-			err = fmt.Errorf(typeErrMsg, id, typ, reflect.TypeOf(v))
-			return
+			return fmt.Errorf(typeErrMsg, tag, typ, reflect.TypeOf(v))
 		}
-
-		vv := v.(float64)
-		if vv != float64(int64(vv)) {
-			err = fmt.Errorf(typeErrMsg, id, typ, reflect.TypeOf(v))
-			return
-		}
-		return vd.Var(vv, tags)
+		return wrapErr(vd.Var(v, tags))
 	case validateTypeFloat:
 		if reflect.TypeOf(v) != reflect.TypeOf(float64(0)) {
-			err = fmt.Errorf(typeErrMsg, id, typ, reflect.TypeOf(v))
-			return
+			return fmt.Errorf(typeErrMsg, tag, typ, reflect.TypeOf(v))
 		}
-
-		return vd.Var(v, tags)
+		return wrapErr(vd.Var(v, tags))
 	case validateTypeString:
 		if reflect.TypeOf(v) != reflect.TypeOf("") {
-			err = fmt.Errorf(typeErrMsg, id, typ, reflect.TypeOf(v))
-			return
+			return fmt.Errorf(typeErrMsg, tag, typ, reflect.TypeOf(v))
 		}
-		return vd.Var(v, tags)
+		return wrapErr(vd.Var(v, tags))
 	case validateTypeRegularExpression:
 		exp := regexp.MustCompile(tags)
 		macth := exp.Match([]byte(fmt.Sprint(v)))
 		if !macth {
-			return fmt.Errorf(typeErrMsg, id, tags, fmt.Sprint(v))
+			return fmt.Errorf(typeErrMsg, tag, tags, fmt.Sprint(v))
 		}
-		return nil
+		return
 	default:
-		return nil
-	}
-}
-
-// validate the map recursively
-func validateMap(tpl, src map[string]interface{}) (err error) {
-	for k, v := range tpl {
-		if subMap, ok := v.(map[string]interface{}); ok {
-			err = validateMap(subMap, src[k].(map[string]interface{}))
-			if err != nil {
-				return
-			}
-		} else if subMap, ok := v.([]interface{}); ok {
-			err = validateSlice(subMap, src[k].([]interface{}))
-			if err != nil {
-				return
-			}
-		} else {
-			err = validateVar(k, v.(string), src[k])
-			if err != nil {
-				return
-			}
-		}
-	}
-	return
-}
-
-// validate the map slice recursively
-func validateSlice(tpl, src []interface{}) (err error) {
-	if len(tpl) != len(src) {
-		err = fmt.Errorf("size not match expected [%d], but received [%d]", len(tpl), len(src))
 		return
 	}
-
-	for idx, tv := range tpl {
-		if subMap, ok := tv.([]interface{}); ok {
-			err = validateSlice(subMap, src[idx].([]interface{}))
-			if err != nil {
-				return
-			}
-		} else if subMap, ok := tv.(map[string]interface{}); ok {
-			err = validateMap(subMap, src[idx].(map[string]interface{}))
-			if err != nil {
-				return
-			}
-		} else {
-			err = validateVar("", tv.(string), src[idx])
-			if err != nil {
-				return
-			}
-		}
-	}
-	return
 }
