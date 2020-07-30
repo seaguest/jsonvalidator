@@ -41,7 +41,6 @@ func Validate(tpl, src []byte) (err error) {
 func validate(tpl, src interface{}, tag string) (err error) {
 	switch val := tpl.(type) {
 	case []interface{}:
-		// src must be slice
 		switch sval := src.(type) {
 		case []interface{}:
 			if len(val) != len(sval) {
@@ -58,7 +57,6 @@ func validate(tpl, src interface{}, tag string) (err error) {
 			return fmt.Errorf("node [%s] type inconsistent", tag)
 		}
 	case map[string]interface{}:
-		// src must be slice
 		switch sval := src.(type) {
 		case map[string]interface{}:
 			for k, v := range val {
@@ -113,8 +111,6 @@ func validateVar(tag, exp string, v interface{}) (err error) {
 		if !macth {
 			return fmt.Errorf(typeErrMsg, tag, tags, fmt.Sprint(v))
 		}
-		return
-	default:
-		return
 	}
+	return
 }
