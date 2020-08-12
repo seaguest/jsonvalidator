@@ -14,6 +14,7 @@ const (
 	validateTypeInt               = "int"
 	validateTypeFloat             = "float"
 	validateTypeString            = "string"
+	validateTypeList              = "list"
 	validateTypeRegularExpression = "re"
 
 	typeErrMsg = "tag [%s] expected [%s], but recieved [%+v]"
@@ -25,51 +26,58 @@ func init() {
 	vd = validator.New()
 }
 
-func Validate(tpl, src []byte) (err error) {
-	var tplItf interface{}
-	if err := json.Unmarshal(tpl, &tplItf); err != nil {
-		return err
-	}
-
+func Validate(src, tpl []byte) (err error) {
 	var srcItf interface{}
 	if err := json.Unmarshal(src, &srcItf); err != nil {
 		return err
 	}
-	return validate(tplItf, srcItf, "")
+
+	var tplItf interface{}
+	if err := json.Unmarshal(tpl, &tplItf); err != nil {
+		return err
+	}
+	return validate(srcItf, tplItf, "")
 }
 
-func validate(tpl, src interface{}, tag string) (err error) {
-	switch val := tpl.(type) {
+func validate(src, tpl interface{}, tag string) (err error) {
+	if src == nil || tpl == nil {
+		return nil
+
+	}
+
+	switch sv := src.(type) {
 	case []interface{}:
-		switch sval := src.(type) {
+		switch tv := tpl.(type) {
 		case []interface{}:
-			if len(val) != len(sval) {
-				return fmt.Errorf("node [%s] not match", tag)
+			if len(sv) != len(tv) {
+				return fmt.Errorf("tag [%s] not match", tag)
 			}
 
-			for idx, v := range val {
-				err = validate(v, sval[idx], "")
+			for idx, v := range sv {
+				err = validate(v, tv[idx], fmt.Sprintf("%s[%d]", tag, idx))
 				if err != nil {
 					return
 				}
 			}
+		case string:
+			return validateVar(tag, tv, sv)
 		default:
-			return fmt.Errorf("node [%s] type inconsistent", tag)
+			return fmt.Errorf("tag [%s] type inconsistent", tag)
 		}
 	case map[string]interface{}:
-		switch sval := src.(type) {
+		switch tv := tpl.(type) {
 		case map[string]interface{}:
-			for k, v := range val {
-				err = validate(v, sval[k], k)
+			for k, v := range sv {
+				err = validate(v, tv[k], k)
 				if err != nil {
 					return
 				}
 			}
 		default:
-			return fmt.Errorf("node [%s] type inconsistent", tag)
+			return fmt.Errorf("tag [%s] type inconsistent", tag)
 		}
 	default:
-		return validateVar(tag, val.(string), src)
+		return validateVar(tag, tpl.(string), sv)
 	}
 	return
 }
@@ -104,6 +112,8 @@ func validateVar(tag, exp string, v interface{}) (err error) {
 		if reflect.TypeOf(v) != reflect.TypeOf("") {
 			return fmt.Errorf(typeErrMsg, tag, typ, reflect.TypeOf(v))
 		}
+		return wrapErr(vd.Var(v, tags))
+	case validateTypeList:
 		return wrapErr(vd.Var(v, tags))
 	case validateTypeRegularExpression:
 		exp := regexp.MustCompile(tags)
