@@ -76,7 +76,6 @@ const srcjson = `
 func TestValidate(t *testing.T) {
 	err := ValidateJson(srcjson, tpljson)
 	fmt.Println(err)
-
 }
 
 ```
