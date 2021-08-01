@@ -3,23 +3,21 @@ package jsonvalidator
 import (
 	"fmt"
 	"testing"
-
-	_ "github.com/go-playground/validator"
 )
 
-const tmpljson = `
+const tpljson = `
 {
-  "int": "int|eq=0",
-  "string": "string|eq=0",
-  "re": "re|^123456$",
-  "list1": "list|eq=2",
+  "int": "{int}|eq=0",
+  "string": "{string}|eq=0",
+  "re": "{re}|^123456$",
+  "list1": "{list}|eq=2",
   "list2": [
-    "int|eq=1",
-    "int|eq=2"
+    "{int}|eq=1",
+    "{int}|eq=2"
   ],
   "data": {
-    "token": "re|Bearer\\s{1}",
-    "password": "re|^123456$"
+    "token": "{re}|Bearer\\s{1}",
+    "password": "{re}|^123456$"
   }
 }
 `
@@ -47,7 +45,7 @@ const srcjson = `
 `
 
 func TestValidate(t *testing.T) {
-	err := Validate([]byte(srcjson), []byte(tmpljson))
+	err := ValidateJson(srcjson, tpljson)
 	fmt.Println(err)
 
 }

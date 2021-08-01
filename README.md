@@ -8,35 +8,45 @@ A json validator based on json template which supports go-playground/validator a
 ### Usage
 The template json value is composed by type|rule. for example:
 
+all supported type:
 ```
-string|eq=ok    declare the node as string and equal ok
-int|eq=0        declare the node as int and equal 0
-re|^0$          declare validation type as regular expression
+tokenInt       = "{int}"
+tokenFloat     = "{float}"
+tokenString    = "{string}"
+tokenList      = "{list}"
+tokenRe        = "{re}" // regular expression
+tokenSeparator = "|"
+
+```
+
+```
+{string}|eq=ok    declare the node as string and equal ok
+{int}|eq=0        declare the node as int and equal 0
+{re}|^0$          declare validation type as regular expression
  ```
 
 
 ``` 
-package main
+package jsonvalidator
 
 import (
 	"fmt"
-	
-	"github.com/seaguest/jsonvalidator"
+	"testing"
 )
 
-const tmpljson = `
+const tpljson = `
 {
-  "int": "int|eq=0",
-  "string": "string|eq=0",
-  "re": "re|^123456$",
-  "list1": "list|eq=2",
+  "int": "{int}|eq=0",
+  "string": "{string}|eq=0",
+  "re": "{re}|^123456$",
+  "list1": "{list}|eq=2",
   "list2": [
-    "int|eq=1",
-    "int|eq=2"
+    "{int}|eq=1",
+    "{int}|eq=2"
   ],
   "data": {
-    "token": "re|Bearer\\s{1}",
-    "password": "re|^123456$"
+    "token": "{re}|Bearer\\s{1}",
+    "password": "{re}|^123456$"
   }
 }
 `
@@ -63,10 +73,10 @@ const srcjson = `
 }
 `
 
-func main() {
-	dst, err := jsonvalidator.Validate([]byte(srcjson), []byte(tmpljson))
+func TestValidate(t *testing.T) {
+	err := ValidateJson(srcjson, tpljson)
+	fmt.Println(err)
 
-	fmt.Println(dst, err)
 }
 
 ```

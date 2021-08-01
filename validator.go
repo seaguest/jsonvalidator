@@ -11,13 +11,14 @@ import (
 )
 
 const (
-	validateTypeInt               = "int"
-	validateTypeFloat             = "float"
-	validateTypeString            = "string"
-	validateTypeList              = "list"
-	validateTypeRegularExpression = "re"
+	tokenInt       = "{int}"
+	tokenFloat     = "{float}"
+	tokenString    = "{string}"
+	tokenList      = "{list}"
+	tokenRe        = "{re}" // regular expression
+	tokenSeparator = "|"
 
-	typeErrMsg = "tag [%s] expected [%s], but recieved [%+v]"
+	typeErrMsg = "tag [%s] expected [%s], but received [%+v]"
 )
 
 var vd *validator.Validate
@@ -26,49 +27,53 @@ func init() {
 	vd = validator.New()
 }
 
-func Validate(src, tpl []byte) (err error) {
-	var srcItf interface{}
-	if err := json.Unmarshal(src, &srcItf); err != nil {
+func ValidateJson(input, tpl string) (err error) {
+	var inputItf interface{}
+	if err := json.Unmarshal([]byte(input), &inputItf); err != nil {
 		return err
 	}
 
 	var tplItf interface{}
-	if err := json.Unmarshal(tpl, &tplItf); err != nil {
+	if err := json.Unmarshal([]byte(tpl), &tplItf); err != nil {
 		return err
 	}
-	return validate(srcItf, tplItf, "")
+	return validate(inputItf, tplItf, "")
 }
 
-func validate(src, tpl interface{}, tag string) (err error) {
-	if src == nil || tpl == nil {
-		return nil
+func ValidateObject(input, tpl interface{}, ) (err error) {
+	return validate(input, tpl, "")
+}
 
+func validate(val, tpl interface{}, tag string) (err error) {
+	if tpl == nil {
+		return
 	}
 
-	switch sv := src.(type) {
+	switch inputData := val.(type) {
 	case []interface{}:
-		switch tv := tpl.(type) {
+		switch tplData := tpl.(type) {
 		case []interface{}:
-			if len(sv) != len(tv) {
-				return fmt.Errorf("tag [%s] not match", tag)
+			if len(inputData) != len(tplData) {
+				err = fmt.Errorf("tag [%s] not match", tag)
+				return
 			}
 
-			for idx, v := range sv {
-				err = validate(v, tv[idx], fmt.Sprintf("%s[%d]", tag, idx))
+			for idx, iv := range inputData {
+				err = validate(iv, tplData[idx], fmt.Sprintf("%s[%d]", tag, idx))
 				if err != nil {
 					return
 				}
 			}
 		case string:
-			return validateVar(tag, tv, sv)
+			return validateVar(inputData, tplData, tag)
 		default:
 			return fmt.Errorf("tag [%s] type inconsistent", tag)
 		}
 	case map[string]interface{}:
-		switch tv := tpl.(type) {
+		switch tplData := tpl.(type) {
 		case map[string]interface{}:
-			for k, v := range sv {
-				err = validate(v, tv[k], k)
+			for k, iv := range inputData {
+				err = validate(iv, tplData[k], k)
 				if err != nil {
 					return
 				}
@@ -77,50 +82,62 @@ func validate(src, tpl interface{}, tag string) (err error) {
 			return fmt.Errorf("tag [%s] type inconsistent", tag)
 		}
 	default:
-		return validateVar(tag, tpl.(string), sv)
+		switch tplData := tpl.(type) {
+		case string:
+			return validateVar(inputData, tplData, tag)
+		default:
+			return fmt.Errorf("tag [%s] type inconsistent", tag)
+		}
 	}
 	return
 }
 
-func validateVar(tag, exp string, v interface{}) (err error) {
-	ss := strings.Split(exp, "|")
+func validateVar(val interface{}, tpl, tag string) (err error) {
+	ss := strings.Split(tpl, tokenSeparator)
 	if len(ss) != 2 {
-		return fmt.Errorf("invalid exp [%s]", exp)
+		return
 	}
-	typ := ss[0]
-	tags := ss[1]
+	token := ss[0]
+	fieldTag := ss[1]
 
-	wrapErr := func(e error) error {
-		if e != nil {
-			return fmt.Errorf(strings.Replace(e.Error(), "''", fmt.Sprintf("'%s'", tag), -1))
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf(strings.Replace(err.Error(), "''", fmt.Sprintf("'%s'", tag), -1))
 		}
-		return nil
+	}()
+
+	err = checkKind(token, val, tag)
+	if err != nil {
+		return
 	}
 
-	switch typ {
-	case validateTypeInt:
-		if reflect.TypeOf(v) != reflect.TypeOf(float64(0)) {
-			return fmt.Errorf(typeErrMsg, tag, typ, reflect.TypeOf(v))
-		}
-		return wrapErr(vd.Var(v, tags))
-	case validateTypeFloat:
-		if reflect.TypeOf(v) != reflect.TypeOf(float64(0)) {
-			return fmt.Errorf(typeErrMsg, tag, typ, reflect.TypeOf(v))
-		}
-		return wrapErr(vd.Var(v, tags))
-	case validateTypeString:
-		if reflect.TypeOf(v) != reflect.TypeOf("") {
-			return fmt.Errorf(typeErrMsg, tag, typ, reflect.TypeOf(v))
-		}
-		return wrapErr(vd.Var(v, tags))
-	case validateTypeList:
-		return wrapErr(vd.Var(v, tags))
-	case validateTypeRegularExpression:
-		exp := regexp.MustCompile(tags)
-		macth := exp.Match([]byte(fmt.Sprint(v)))
-		if !macth {
-			return fmt.Errorf(typeErrMsg, tag, tags, fmt.Sprint(v))
+	switch token {
+	case tokenInt, tokenFloat, tokenString, tokenList:
+		err = vd.Var(val, fieldTag)
+	case tokenRe:
+		exp := regexp.MustCompile(fieldTag)
+		match := exp.Match([]byte(fmt.Sprint(val)))
+		if !match {
+			err = fmt.Errorf(typeErrMsg, tag, fieldTag, fmt.Sprint(val))
 		}
 	}
 	return
+}
+
+func checkKind(token string, val interface{}, tag string) error {
+	invalid := false
+	switch token {
+	case tokenInt, tokenFloat:
+		if reflect.TypeOf(val).Kind() != reflect.Float64 {
+			invalid = true
+		}
+	case tokenString:
+		if reflect.TypeOf(val).Kind() != reflect.String {
+			invalid = true
+		}
+	}
+	if invalid {
+		return fmt.Errorf(typeErrMsg, tag, token, reflect.TypeOf(val))
+	}
+	return nil
 }
